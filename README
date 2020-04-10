@@ -1,0 +1,60 @@
+
+#Burcea Marian Gabriel --- Router functionality implementation
+
+    The project tries to implement a simple router precedure with its functions
+and responsibilities (receiving, forwarding, requesting packets). The code
+consists in one infinite loop in which packets are received, read, modified and
+eventually forwarded or replied.
+
+Data structures use and parsing explication:
+ - C++ stl vector for storing route table entries --- prefix, next-hop, mask,
+ interface;
+ - C++ stl unordered map for storing ARP (address resolution protocol) table
+ entries --- IP (protocol) address, MAC (hardware) address;
+ - C++ stl queue for storing unsent (on stand-by) packets with their next-hops
+ , saved for sending later when the net destination is well-known;
+ - route table entries are read at the beginning from rtable.txt file which
+ contains one entry per line;
+ - entries are kept sorted ascending by prefix and ascending by mask in vector
+ and the search is made in logarithmic time (binary): search by prefix, find
+ a matching entry and go down until the biggest mask;
+ - ARP table entries are stored dinamicaly, updating the table at every ARP
+ reply if needed;
+
+Loop functionalities explication:
+ - assume that all packets contain the ethernet header alongside other eventual
+ headers
+ - after receiving a packet the router must know what type is --- ARP or IP;
+ - IP-types:
+    ~ contains additional IP and ICMP (internt control message protocol) header;
+    ~ check if packets are corrupted by recalculating the checksum value and
+    comparing with the old one, if the answer is positive, drop the packet;
+    ~ check the ttl (time to leave) value, if the time is up (ttl <= 1) drop
+    the packet and send suitable message back (TIMXCEED) --- <resolve_timeout()>
+    function;
+    ~ check if the packet is a ICMP_ECHO one for router and reply back if
+    necessary with ICMP_ECHOREPLY message --- <resolve_icmp_echo()> function;
+    ~ check if the router can forward the packet (if the IP destination address
+    match at least one entry in route table), if not, drop the packet and send
+    ICMP_DEST_UNREACH message back --- <resolve_destination_unreachable()>
+    function;
+    ~ check if the MAC address coresponding to IP next-hop address is known
+    (exists in ARP table), if not, save the packet in queue and send an ARP
+    request on next-hop interface --- <resolve_no_arp_entry()> function;
+    ~ if the IP address is in route table and the next-hop entry returned
+    exists in ARP table send packet forward --- <resolve_forwarding()> function;
+ - ARP-types:
+    ~ contains additional ARP header;
+    ~ check if packet is an ARP request or an ARP reply message;
+    ~ if ARPOP_REQUEST, the router send a message back with his MAC address
+    completed --- <resolve_arp_request()> function;
+    ~ if ARPOP_REPLY, that means router has sent a request before and has
+    packets on stand-by, so it updates the ARP table with the MAC address
+    received and send packets that are unsent on the ARP message interface ---
+    <resolve_arp_reply()> function;
+
+Headers used for router implementation are the Linux native ones found in
+    - net/ethernet.h (~ether_header struct~ for ethernet header)
+    - netinet/ip.h (~iphdr struct~ for ip header)
+    - netinet/ip_icmp.h (~icmphdr struct~ for icmp header)
+    - netinet/if_ehter.h (~ether_arp struct~ for arp header)
